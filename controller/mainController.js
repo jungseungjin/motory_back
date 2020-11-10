@@ -1145,4 +1145,130 @@ module.exports = (app) => {
       res.json({ type: 0, message: Send_message });
     }
   });
+
+  app.get("/review_list", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        if (req.query.user_id) {
+          let car_id = {};
+          let new_car_id = {};
+          let work_id = {};
+          let new_work_id = {};
+          if (req.query.car_id) {
+            let car_arr = [];
+            if (req.query.car_id.indexOf(",") != -1) {
+              let car_data = req.query.car_id.split(",");
+              for (var a = 0; a < car_data.length; a++) {
+                car_arr.push(car_data[a]);
+              }
+              car_arr.push("all");
+              car_id = {
+                $in: car_arr,
+              };
+            } else {
+              car_id = {
+                $in: [req.query.car_id, "all"],
+              };
+            }
+            new_car_id = { store_info_car: car_id };
+          }
+          if (req.query.car_id == "all") {
+            new_car_id = {};
+          }
+          if (req.query.work_id) {
+            let work_arr = [];
+            if (req.query.work_id.indexOf(",") != -1) {
+              let work_data = req.query.work_id.split(",");
+              for (var a = 0; a < work_data.length; a++) {
+                work_arr.push(work_data[a]);
+              }
+              work_id = {
+                $in: work_arr,
+              };
+            } else {
+              work_id = {
+                $in: [req.query.work_id],
+              };
+            }
+            new_work_id = { store_info_work: work_id };
+          }
+          let data = await Work.store_work.aggregate([
+            {
+              $match: {
+                store_user_id: req.query.user_id,
+                store_work_del: false,
+              },
+            },
+            { $match: new_work_id },
+            { $match: new_car_id },
+            {
+              $lookup: {
+                from: "info_cars",
+                localField: "store_info_car",
+                foreignField: "info_car_id",
+                as: "cars",
+              },
+            },
+            {
+              $lookup: {
+                from: "info_works",
+                localField: "store_info_work",
+                foreignField: "info_work_id",
+                as: "works",
+              },
+            },
+            {
+              $lookup: {
+                from: "review_works",
+                localField: "_id",
+                foreignField: "review_id",
+                as: "reviews",
+              },
+            },
+            {
+              $lookup: {
+                from: "info_users",
+                localField: "reviews.review_user_id",
+                foreignField: "iu_id",
+                as: "review_users",
+              },
+            },
+          ]);
+          for (var a = 0; a < data.length; a++) {
+            let reply_count = await Work.review_work.countDocuments({
+              review_id: data[a]._id,
+              review_owner_reply: 1,
+            });
+            data[a].owner_reply_count = reply_count;
+          }
+          res.json(data);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+      res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+
+  //사장님의 댓글달기
+  app.patch("/review_owner_reply", async function (req, res) {
+    try {
+      if (req.body.key == Key.key) {
+        let chk_data = await Work.review_work.findOneAndUpdate(
+          { _id: req.body.data._id },
+          {
+            $set: {
+              review_owner_reply: 1,
+              review_owner_reply_contents: req.body.reply_contents,
+              review_owner_reply_regdate: moment(),
+            },
+          }
+        );
+      }
+      res.json({ type: 1, message: "ok" });
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message });
+    }
+  });
 };
