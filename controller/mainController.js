@@ -783,20 +783,16 @@ module.exports = (app) => {
   app.get("/get_store", async function (req, res) {
     try {
       if (req.query.key == Key.key) {
-        console.log("gd1");
         if (req.query._id) {
           //유저아이디의 _id
-          console.log("gd2");
           let chk_user = await User.info_user.findOne({
             _id: mongoose.Types.ObjectId(req.query._id),
           });
           if (chk_user) {
-            console.log("gd3");
             let chk_data = await Store.info_store.findOne({
               store_user_id: chk_user.iu_id,
             });
             if (chk_data) {
-              console.log("gd4");
               return res.json([chk_data]);
             } else {
               return res.json([{ type: 2 }]); //아직
@@ -1221,7 +1217,7 @@ module.exports = (app) => {
               $lookup: {
                 from: "review_works",
                 localField: "_id",
-                foreignField: "review_id",
+                foreignField: "review_store_work_id",
                 as: "reviews",
               },
             },
@@ -1236,7 +1232,7 @@ module.exports = (app) => {
           ]);
           for (var a = 0; a < data.length; a++) {
             let reply_count = await Work.review_work.countDocuments({
-              review_id: data[a]._id,
+              review_store_work_id: data[a]._id,
               review_owner_reply: 1,
             });
             data[a].owner_reply_count = reply_count;
@@ -1269,6 +1265,283 @@ module.exports = (app) => {
     } catch (err) {
       console.log(err);
       res.json({ type: 0, message: Send_message });
+    }
+  });
+  //예약데이터 디비에 직접 집어넣기. 작업완료 후 삭제
+  app.get("/reservation_data_push", async function (req, res) {
+    try {
+      let chk_data = await Work.store_work.findOne({ store_user_id: "ywack3" });
+      let time = 0900;
+      for (var a = 0; a < 5; a++) {
+        await Work.reservation_work({
+          reservation_store_work_id: chk_data._id, //작업의 _id값
+          reservation_user_id: "ywack3", //예약한 유저 아이디
+          reservation_store_user_id: "ywack3", //사장님 아이디
+          reservation_date: moment().format("YYYY-MM-DD"), //예약날짜
+          reservation_start_time: 0900, //작업 예약시간
+          reservation_type: 0, //0 예약대기 1예약완료 2작업중 3작업완료
+          //reservation_cancel_contents: { type: String }, //취소사유
+          reservation_contents: a + "gdgdgeb1fbebe", //작업 요청사항
+          reservation_payment: 0, //작업 결제방식
+          reservation_regdate: moment(), //예약한 시간
+        }).save();
+        time = time + 200;
+      }
+      res.json("gd");
+      /**
+       * 
+       * let reservation_work = new Schema({
+  //작업 예약
+  reservation_store_work_id: { type: mongoose.Types.ObjectId }, //작업의 _id값
+  reservation_user_id: { type: String }, //예약한 유저 아이디
+  reservation_store_user_id: { type: String }, //사장님 아이디
+  reservation_date: { type: Date }, //예약날짜
+  reservation_start_time: { type: String }, //작업 예약시간
+  reservation_type: { type: Number }, //0 예약대기 1예약완료 2작업중 3작업완료
+  reservation_cancel_contents: { type: String }, //취소사유
+  reservation_contents: { type: String }, //작업 요청사항
+  reservation_payment: { type: Number }, //작업 결제방식
+  reservation_regdate: { type: Date }, //예약한 시간
+});
+       */
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message });
+    }
+  });
+  //예약일정 가져오기 - 날짜
+  app.get("/reservation_date", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        if (req.query.user_id && req.query.date) {
+          let data = await Work.reservation_work.aggregate([
+            {
+              $match: {
+                reservation_store_user_id: req.query.user_id,
+                reservation_date: new Date(
+                  moment(req.query.date).format("YYYY-MM-DD")
+                ),
+              },
+            },
+            {
+              $lookup: {
+                from: "store_works",
+                localField: "reservation_store_work_id",
+                foreignField: "_id",
+                as: "works",
+              },
+            },
+            {
+              $lookup: {
+                from: "info_users",
+                localField: "reservation_store_user_id",
+                foreignField: "iu_id",
+                as: "users",
+              },
+            },
+            {
+              $sort: {
+                reservation_start_time: 1,
+              },
+            },
+          ]);
+          if (data.length == 0) {
+            data = [{ type: 1, message: "ok" }];
+          }
+          console.log(data);
+          res.json(data);
+        } else {
+          res.json([{ type: 0, message: Send_message }]);
+        }
+      } else {
+        res.json([{ type: 0, message: Send_message }]);
+      }
+    } catch (err) {
+      console.log(err);
+      res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+  //예약이 있는지 여부 가져오기 - 달 + 임시휴무일 공휴일 운영시간이 없는요일 체크해서 넘겨야함 {disabled: true},
+  app.get("/reservation_month", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        if (req.query.user_id && req.query.date) {
+          let month_data = {};
+          let data = await Work.reservation_work.aggregate([
+            {
+              $match: {
+                reservation_store_user_id: req.query.user_id,
+                $or: [{ reservation_type: 1 }, { reservation_type: 0 }],
+                reservation_date: {
+                  $gte: new Date(
+                    moment(req.query.date, "YYYY-MM")
+                      .startOf("month")
+                      .format("YYYY-MM-DD")
+                  ),
+                  $lte: new Date(
+                    moment(req.query.date, "YYYY-MM")
+                      .endOf("month")
+                      .format("YYYY-MM-DD")
+                  ),
+                },
+              },
+            },
+            { $sort: { reservation_date: 1 } },
+          ]); //기간으로
+          for (var a = 0; a < data.length; a++) {
+            let string_date = moment(data[a].reservation_date)
+              .format("YYYY-MM-DD")
+              .toString();
+            month_data[string_date] = { marked: true };
+          }
+          res.json([month_data]);
+        }
+      }
+    } catch (err) {
+      console.log(err);
+      res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+
+  //매장의 운영시간에 따른 기본 데이터값 가져오기
+  app.get("/reservation_get_store", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        if (req.query._id) {
+          //유저아이디의 _id
+          let chk_user = await User.info_user.findOne({
+            _id: mongoose.Types.ObjectId(req.query._id),
+          });
+          if (chk_user) {
+            let chk_data = await Store.info_store.findOne({
+              store_user_id: chk_user.iu_id,
+            });
+            if (chk_data) {
+              let operation_time = [];
+              for (var a = 0; a < chk_data.store_operation_time.length; a++) {
+                if (chk_data.store_operation_time[a].mon == true) {
+                  operation_time.push({
+                    id: 1,
+                    day: "mon",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].tue == true) {
+                  operation_time.push({
+                    id: 2,
+                    day: "tue",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].wen == true) {
+                  operation_time.push({
+                    id: 3,
+                    day: "wen",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].thu == true) {
+                  operation_time.push({
+                    id: 4,
+                    day: "thu",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].fri == true) {
+                  operation_time.push({
+                    id: 5,
+                    day: "fri",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].sat == true) {
+                  operation_time.push({
+                    id: 6,
+                    day: "sat",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+                if (chk_data.store_operation_time[a].sun == true) {
+                  operation_time.push({
+                    id: 7,
+                    day: "sun",
+                    ampm1: chk_data.store_operation_time[a].ampm1,
+                    startTime: chk_data.store_operation_time[a].startTime,
+                    ampm2: chk_data.store_operation_time[a].ampm2,
+                    endTime: chk_data.store_operation_time[a].endTime,
+                  });
+                }
+              }
+              operation_time.sort(function (a, b) {
+                return a.id - b.id;
+              });
+              let operation_time_data = [];
+              for (var b = 0; b < operation_time.length; b++) {
+                let new_array = [];
+                let time_diff = moment(
+                  moment(
+                    operation_time[b].ampm2 + operation_time[b].endTime,
+                    "aHH:mm"
+                  )
+                ).diff(
+                  moment(
+                    moment(
+                      operation_time[b].ampm1 + operation_time[b].startTime,
+                      "aHH:mm"
+                    )
+                  ),
+                  "m"
+                );
+                let time_space = parseInt(time_diff / 30);
+                for (var c = 0; c <= time_space; c++) {
+                  if (c == 0) {
+                    new_array.push(operation_time[b].id);
+                  }
+                  new_array.push(
+                    moment(
+                      moment(
+                        operation_time[b].ampm1 + operation_time[b].startTime,
+                        "aHH:mm"
+                      ).add(30 * c, "m")
+                    ).format("HHmm")
+                  );
+                }
+                operation_time_data.push(new_array);
+              }
+              return res.json(operation_time_data);
+            } else {
+              return res.json([{ type: 2 }]); //아직
+            }
+          } else {
+            return res.json([{ type: 0, message: Send_message }]);
+          }
+        } else {
+          return res.json([{ type: 0, message: Send_message }]);
+        }
+      } else {
+        return res.json([{ type: 0, message: Send_message }]);
+      }
+    } catch (err) {
+      console.log(err);
+      return res.json([{ type: 0, message: Send_message }]);
     }
   });
 };
