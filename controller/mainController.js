@@ -1271,21 +1271,20 @@ module.exports = (app) => {
   app.get("/reservation_data_push", async function (req, res) {
     try {
       let chk_data = await Work.store_work.findOne({ store_user_id: "ywack3" });
-      let time = 0900;
-      for (var a = 0; a < 5; a++) {
+      let time = "0900";
+      for (var a = 0; a < 1; a++) {
         await Work.reservation_work({
           reservation_store_work_id: chk_data._id, //작업의 _id값
           reservation_user_id: "ywack3", //예약한 유저 아이디
           reservation_store_user_id: "ywack3", //사장님 아이디
           reservation_date: moment().format("YYYY-MM-DD"), //예약날짜
-          reservation_start_time: 0900, //작업 예약시간
+          reservation_start_time: "1600", //작업 예약시간
           reservation_type: 0, //0 예약대기 1예약완료 2작업중 3작업완료
           //reservation_cancel_contents: { type: String }, //취소사유
           reservation_contents: a + "gdgdgeb1fbebe", //작업 요청사항
           reservation_payment: 0, //작업 결제방식
           reservation_regdate: moment(), //예약한 시간
         }).save();
-        time = time + 200;
       }
       res.json("gd");
       /**
@@ -1513,7 +1512,7 @@ module.exports = (app) => {
                 let time_space = parseInt(time_diff / 30);
                 for (var c = 0; c <= time_space; c++) {
                   if (c == 0) {
-                    new_array.push(operation_time[b].id);
+                    new_array.push(operation_time[b].day);
                   }
                   new_array.push(
                     moment(
