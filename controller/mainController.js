@@ -1277,6 +1277,10 @@ module.exports = (app) => {
           reservation_store_work_id: chk_data._id, //작업의 _id값
           reservation_user_id: "ywack3", //예약한 유저 아이디
           reservation_store_user_id: "ywack3", //사장님 아이디
+          reservation_user_car: mongoose.Types.ObjectId(
+            "5f8f01ded5f8c2056178a7a1"
+          ), //예약한 유저의 자동차_id값
+          reservation_user_car_number: "25너2551", //예약한 유저의 자동차 번호
           reservation_date: moment().format("YYYY-MM-DD"), //예약날짜
           reservation_start_time: "1600", //작업 예약시간
           reservation_type: 0, //0 예약대기 1예약완료 2작업중 3작업완료
@@ -1317,6 +1321,7 @@ module.exports = (app) => {
             {
               $match: {
                 reservation_store_user_id: req.query.user_id,
+                $or: [{ reservation_type: 1 }, { reservation_type: 0 }],
                 reservation_date: new Date(
                   moment(req.query.date).format("YYYY-MM-DD")
                 ),
@@ -1332,10 +1337,26 @@ module.exports = (app) => {
             },
             {
               $lookup: {
+                from: "info_stores",
+                localField: "works.store_id",
+                foreignField: "_id",
+                as: "stores",
+              },
+            },
+            {
+              $lookup: {
                 from: "info_users",
                 localField: "reservation_store_user_id",
                 foreignField: "iu_id",
                 as: "users",
+              },
+            },
+            {
+              $lookup: {
+                from: "info_cars",
+                localField: "reservation_user_car",
+                foreignField: "_id",
+                as: "cars",
               },
             },
             {
@@ -1541,6 +1562,30 @@ module.exports = (app) => {
     } catch (err) {
       console.log(err);
       return res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+
+  //예약세부일정 사장님이 취소
+  app.patch("/reservation_cancel", async function (req, res) {
+    try {
+      if (req.body.key == Key.key) {
+        let chk_data = await Work.reservation_work.findOneAndUpdate(
+          { _id: mongoose.Types.ObjectId(req.body.data._id) },
+          {
+            $set: {
+              reservation_type: 2,
+              reservation_cancel_contents: req.body.contents,
+              reservation_cancel_date: moment(),
+            },
+          }
+        );
+        res.json({ type: 1, message: "ok" });
+      } else {
+        res.json({ type: 0, message: Send_message });
+      }
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message });
     }
   });
 };
