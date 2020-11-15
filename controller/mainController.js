@@ -1368,7 +1368,7 @@ module.exports = (app) => {
           if (data.length == 0) {
             data = [{ type: 1, message: "ok" }];
           }
-          console.log(data);
+          //console.log(data);
           res.json(data);
         } else {
           res.json([{ type: 0, message: Send_message }]);
@@ -1582,6 +1582,66 @@ module.exports = (app) => {
         res.json({ type: 1, message: "ok" });
       } else {
         res.json({ type: 0, message: Send_message });
+      }
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message });
+    }
+  });
+
+  app.get("/reservation_list", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        let data = await Work.reservation_work.aggregate([
+          {
+            $match: {
+              reservation_store_user_id: req.query.user_id,
+              $or: [{ reservation_type: 1 }, { reservation_type: 5 }],
+            },
+          },
+          {
+            $lookup: {
+              from: "store_works",
+              localField: "reservation_store_work_id",
+              foreignField: "_id",
+              as: "works",
+            },
+          },
+          {
+            $lookup: {
+              from: "info_stores",
+              localField: "works.store_id",
+              foreignField: "_id",
+              as: "stores",
+            },
+          },
+          {
+            $lookup: {
+              from: "info_users",
+              localField: "reservation_store_user_id",
+              foreignField: "iu_id",
+              as: "users",
+            },
+          },
+          {
+            $lookup: {
+              from: "info_cars",
+              localField: "reservation_user_car",
+              foreignField: "_id",
+              as: "cars",
+            },
+          },
+          {
+            $sort: {
+              reservation_date: 1,
+              reservation_start_time: 1,
+            },
+          },
+        ]);
+        if (data.length == 0) {
+          data = [{ type: 1, message: "ok" }];
+        }
+        res.json(data);
       }
     } catch (err) {
       console.log(err);
