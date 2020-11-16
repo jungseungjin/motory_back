@@ -105,3 +105,6 @@ dist
 
 # TernJS port file
 .tern-port
+
+app.js
+pushController.js
