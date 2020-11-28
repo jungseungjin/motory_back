@@ -205,6 +205,8 @@ module.exports = (app, passport) => {
             _id: loginUpdate._id,
             iu_id: loginUpdate.iu_id,
             iu_name: loginUpdate.iu_name,
+            alarm_notice: loginUpdate.alarm_notice,
+            alarm_review: loginUpdate.alarm_review,
           });
         } else {
           return res.json({

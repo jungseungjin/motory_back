@@ -1648,4 +1648,29 @@ module.exports = (app) => {
       res.json({ type: 0, message: Send_message });
     }
   });
+
+  //유저 알림 설정변경
+  app.post("/user_alarm", async function (req, res) {
+    try {
+      if (req.body.key == Key.key) {
+        if (req.body.type == "notice") {
+          await User.info_user.findOneAndUpdate(
+            { _id: mongoose.Types.ObjectId(req.body.user_id) },
+            { $set: { alarm_notice: req.body.num } }
+          );
+        } else if (req.body.type == "review") {
+          await User.info_user.findOneAndUpdate(
+            { _id: mongoose.Types.ObjectId(req.body.user_id) },
+            { $set: { alarm_review: req.body.num } }
+          );
+        }
+        res.json({ type: 1, message: "ok" });
+      } else {
+        res.json({ type: 0, message: Send_message });
+      }
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message });
+    }
+  });
 };
