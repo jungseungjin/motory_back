@@ -837,6 +837,7 @@ module.exports = (app) => {
             store_closed_day: req.body.count.ClosedDay, //각 배열 원소는 {week : number, day : String} 2번으로 날짜 지우기
             store_closed_day_temp: req.body.count.ClosedDayTemporary, //각 배열 원소는 {startDay:Date , endDay:Date} 1번으로 날짜 지우기
             store_holiday: req.body.holiday, //공휴일 판별기준??3번으로 날짜 지우기
+            store_number: req.body.storeNumber,
           }).save();
           res.json({ type: 1, message: "ok" });
         } else {
