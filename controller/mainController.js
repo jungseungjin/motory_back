@@ -1023,6 +1023,9 @@ module.exports = (app) => {
               },
             },
           ]);
+          if (data.length == 0) {
+            data = [{ type: 3 }];
+          }
           res.json(data);
         }
       }
@@ -1237,6 +1240,10 @@ module.exports = (app) => {
               review_owner_reply: 1,
             });
             data[a].owner_reply_count = reply_count;
+          }
+
+          if (data.length == 0) {
+            data = [{ type: 3 }];
           }
           res.json(data);
         }
