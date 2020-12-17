@@ -1374,9 +1374,9 @@ module.exports = (app) => {
             },
           ]);
           if (data.length == 0) {
-            data = [{ type: 1, message: "ok" }];
+            data = [{ type: 1, message: "ok", _id: "null" }];
           }
-          //console.log(data);
+          console.log(data);
           res.json(data);
         } else {
           res.json([{ type: 0, message: Send_message }]);
@@ -1387,6 +1387,89 @@ module.exports = (app) => {
     } catch (err) {
       console.log(err);
       res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+  //예약불가시간 - 날짜
+  app.get("/lock_time_date", async function (req, res) {
+    try {
+      if (req.query.key == Key.key) {
+        if (req.query.user_id && req.query.date) {
+          let data = await Store.info_store_lock_time.aggregate([
+            {
+              $match: {
+                store_user_id: req.query.user_id,
+                lock_time_date: new Date(
+                  moment(req.query.date).format("YYYY-MM-DD")
+                ),
+              },
+            },
+          ]);
+          if (data.length == 0) {
+            data = [{ type: 1, message: "ok", _id: "null" }];
+          }
+          console.log(data);
+          res.json(data);
+        } else {
+          res.json([{ type: 0, message: Send_message }]);
+        }
+      } else {
+        res.json([{ type: 0, message: Send_message }]);
+      }
+    } catch (err) {
+      console.log(err);
+      res.json([{ type: 0, message: Send_message }]);
+    }
+  });
+  //예약불가시간 저장
+  app.post("/lock_time_date", async function (req, res) {
+    try {
+      console.log(req.body);
+      if (req.body.key == Key.key) {
+        if (req.body.user_id && req.body.date && req.body.lock_time) {
+          let chk_data = await Store.info_store_lock_time.findOne({
+            store_user_id: req.body.user_id,
+            lock_time_date: new Date(
+              moment(req.body.date).format("YYYY-MM-DD")
+            ),
+          });
+          if (chk_data) {
+            await Store.info_store_lock_time.findOneAndUpdate(
+              {
+                store_user_id: req.body.user_id,
+                lock_time_date: new Date(
+                  moment(req.body.date).format("YYYY-MM-DD")
+                ),
+              },
+              { $set: { lock_time: req.body.lock_time } }
+            );
+          } else {
+            let chk_store = await Store.info_store.findOne({
+              store_user_id: req.body.user_id,
+            });
+            if (chk_store) {
+              await Store.info_store_lock_time({
+                store_user_id: req.body.user_id,
+                store_id: mongoose.Types.ObjectId(chk_store._id),
+                store_id_string: chk_store._id.toString(),
+                lock_time_date: new Date(
+                  moment(req.body.date).format("YYYY-MM-DD")
+                ),
+                lock_time: req.body.lock_time,
+              }).save();
+            } else {
+              res.json({ type: 0, message: Send_message + 1 });
+            }
+          }
+          res.json({ type: 1, message: "ok" });
+        } else {
+          res.json({ type: 0, message: Send_message + 2 });
+        }
+      } else {
+        res.json({ type: 0, message: Send_message + 3 });
+      }
+    } catch (err) {
+      console.log(err);
+      res.json({ type: 0, message: Send_message + 4 });
     }
   });
   //예약이 있는지 여부 가져오기 - 달 + 임시휴무일 공휴일 운영시간이 없는요일 체크해서 넘겨야함 {disabled: true},
@@ -1647,7 +1730,7 @@ module.exports = (app) => {
           },
         ]);
         if (data.length == 0) {
-          data = [{ type: 1, message: "ok" }];
+          data = [{ type: 1, message: "ok", _id: "null" }];
         }
         res.json(data);
       }
